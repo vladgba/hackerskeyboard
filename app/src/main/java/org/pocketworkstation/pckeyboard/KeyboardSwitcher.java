@@ -55,9 +55,8 @@ public class KeyboardSwitcher implements
     public static final int KEYBOARDMODE_WEB_WITH_SETTINGS_KEY = R.id.mode_webentry_with_settings_key;
 
     // Symbols keyboard layout without the settings key
-    public static final int KEYBOARDMODE_SYMBOLS = R.id.mode_symbols;
-    // Symbols keyboard layout with the settings key
-    public static final int KEYBOARDMODE_SYMBOLS_WITH_SETTINGS_KEY = R.id.mode_symbols_with_settings_key;
+    public static final int KEYBOARDMODE_SYMBOLS = R.id.mode_normal;//_symbols;  // Symbols keyboard layout with the settings key
+    public static final int KEYBOARDMODE_SYMBOLS_WITH_SETTINGS_KEY = R.id.mode_normal;//_symbols_with_settings_key;
 
     public static final String DEFAULT_LAYOUT_ID = "0";
     public static final String PREF_KEYBOARD_LAYOUT = "pref_keyboard_layout";

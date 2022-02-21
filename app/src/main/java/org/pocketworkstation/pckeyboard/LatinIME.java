@@ -268,6 +268,8 @@ public class LatinIME extends InputMethodService implements
     private final float FX_VOLUME_RANGE_DB = 72.0f;
     private boolean mSilentMode;
 
+	private boolean shiftclicked = true;
+	private boolean shiftlong = false;
     /* package */String mWordSeparators;
     private String mSentenceSeparators;
     private boolean mConfigurationChanging;
@@ -355,6 +357,7 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public void onCreate() {
+		shiftclicked = true;
         Log.i("PCKeyboard", "onCreate(), os.version=" + System.getProperty("os.version"));
         KeyboardSwitcher.init(this);
         super.onCreate();
@@ -1078,6 +1081,7 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public void hideWindow() {
+		shiftclicked = true;
         onAutoCompletionStateChanged(false);
 
         if (mOptionsDialog != null && mOptionsDialog.isShowing()) {
@@ -1205,15 +1209,31 @@ public class LatinIME extends InputMethodService implements
                 }
             }
             break;
-        case KeyEvent.KEYCODE_VOLUME_UP:
-            if (!mVolUpAction.equals("none") && isKeyboardVisible()) {
+        case KeyEvent.KEYCODE_DPAD_DOWN:
+        case KeyEvent.KEYCODE_DPAD_UP:
+        case KeyEvent.KEYCODE_DPAD_LEFT:
+        case KeyEvent.KEYCODE_DPAD_RIGHT:
+            // If tutorial is visible, don't allow dpad to work
+            if (mTutorial != null) {
                 return true;
             }
             break;
         case KeyEvent.KEYCODE_VOLUME_DOWN:
-            if (!mVolDownAction.equals("none") && isKeyboardVisible()) {
-                return true;
-            }
+				if(isKeyboardVisible()) {
+					shiftlong = true;
+					setModCtrl(true);
+					mCtrlKeyState.onPress();
+					sendCtrlKey(getCurrentInputConnection(), true, true);
+					 return true;
+				}
+           // }
+            break;
+		case KeyEvent.KEYCODE_VOLUME_UP:
+			if(isKeyboardVisible()) {
+			    mKeyboardSwitcher.setShiftState(2);
+				mKeyboardSwitcher.getInputView().setShiftState(2);
+				return true;
+			}
             break;
         }
         return super.onKeyDown(keyCode, event);
@@ -1229,7 +1249,7 @@ public class LatinIME extends InputMethodService implements
             LatinKeyboardView inputView = mKeyboardSwitcher.getInputView();
             // Enable shift key and DPAD to do selections
             if (inputView != null && inputView.isShown()
-                    && inputView.getShiftState() == Keyboard.SHIFT_ON) {
+                    && /*inputView.getShiftState() > 0*/ shiftclicked/*== Keyboard.SHIFT_ON*/) {
                 event = new KeyEvent(event.getDownTime(), event.getEventTime(),
                         event.getAction(), event.getKeyCode(), event
                                 .getRepeatCount(), event.getDeviceId(), event
@@ -1241,16 +1261,29 @@ public class LatinIME extends InputMethodService implements
                 return true;
             }
             break;
-        case KeyEvent.KEYCODE_VOLUME_UP:
+        case KeyEvent.KEYCODE_VOLUME_DOWN:
+				if(isKeyboardVisible()) {
+					shiftlong = false;
+					setModCtrl(false);
+					mCtrlKeyState.onRelease();
+					sendCtrlKey(getCurrentInputConnection(), false, true);
+					//getCurrentInputConnection().sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_DPAD_UP));
+					return true;
+				}
+				/*
             if (!mVolUpAction.equals("none") && isKeyboardVisible()) {
                 return doSwipeAction(mVolUpAction);
-            }
-            break;
-        case KeyEvent.KEYCODE_VOLUME_DOWN:
-            if (!mVolDownAction.equals("none") && isKeyboardVisible()) {
-                return doSwipeAction(mVolDownAction);
-            }
-            break;
+            }*/
+				break;
+			case KeyEvent.KEYCODE_VOLUME_UP:
+				if(isKeyboardVisible()) {
+					if(!shiftlong) {
+						mKeyboardSwitcher.setShiftState(0);
+						mKeyboardSwitcher.getInputView().setShiftState(0);
+					}
+					return true;
+				}
+				break;
         }
         return super.onKeyUp(keyCode, event);
     }
@@ -1837,35 +1870,6 @@ public class LatinIME extends InputMethodService implements
                     // Try workaround for issue 179 where letters don't get upcased
                     ic.commitText(Character.toString(ch), 1);
                     handleModifierKeysUp(false, false);
-                } else if ((ch == 'a' || ch == 'A') && mModCtrl) {
-                    // Special case for Ctrl-A to work around accidental select-all-then-replace.
-                    if (sKeyboardSettings.ctrlAOverride == 0) {
-                        // Ignore Ctrl-A, treat Ctrl-Alt-A as Ctrl-A.
-                        if (mModAlt) {
-                            boolean isChordingAlt = mAltKeyState.isChording();
-                            setModAlt(false);
-                            sendModifiedKeyDownUp(code, shifted);
-                            if (isChordingAlt) setModAlt(true);
-                        } else {
-                            Toast.makeText(getApplicationContext(),
-                                getResources()
-                                .getString(R.string.toast_ctrl_a_override_info), Toast.LENGTH_LONG)
-                                .show();
-                            // Clear the Ctrl modifier (and others)
-                            sendModifierKeysDown(shifted);
-                            sendModifierKeysUp(shifted);
-                            return;  // ignore the key
-                        }
-
-                    } else if (sKeyboardSettings.ctrlAOverride == 1) {
-                        // Clear the Ctrl modifier (and others)
-                        sendModifierKeysDown(shifted);
-                        sendModifierKeysUp(shifted);
-                        return;  // ignore the key
-                    } else {
-                        // Standard Ctrl-A behavior.
-                        sendModifiedKeyDownUp(code, shifted);
-                    }
                 } else {
                     sendModifiedKeyDownUp(code, shifted);
                 }
@@ -3474,6 +3478,7 @@ public class LatinIME extends InputMethodService implements
     }
 
     public void changeKeyboardMode() {
+		shiftclicked = true;
         KeyboardSwitcher switcher = mKeyboardSwitcher;
         if (switcher.isAlphabetMode()) {
             mSavedShiftState = getShiftState();
